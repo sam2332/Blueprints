@@ -214,38 +214,42 @@ namespace Blueprints {
 
                 // linked thingdef graphic
                 else {
-                    Color      color = Resources.GhostColor( CanPlace( origin ) );
-                    int      hash  = color.GetHashCode() * _rotation.GetHashCode();
+                    Color color = Resources.GhostColor(CanPlace(origin));
+                    int hash = color.GetHashCode() * _rotation.GetHashCode();
                     if (!_cachedMaterials.TryGetValue(hash, out Material material)) {
                         // get a colored version (ripped from GhostDrawer.DrawGhostThing)
-                        Graphic_Linked graphic = (Graphic_Linked) _thingDef.graphic.GetColoredVersion( ShaderDatabase.Transparent,
-                                                                                            color,
-                                                                                            Color.white );
+                        var coloredGraphic = _thingDef.graphic.GetColoredVersion(
+                            ShaderDatabase.Transparent, color, Color.white);
 
-                        // atlas contains all possible link graphics
-                        Material atlas = graphic.MatSingle;
+                        var graphicLinked = coloredGraphic as Graphic_Linked;
+                        if (graphicLinked != null) {
+                            // atlas contains all possible link graphics
+                            Material atlas = graphicLinked.MatSingle;
 
-                        // loop over cardinal directions, and set the correct bits (e.g. 1, 2, 4, 8).
-                        int linkInt = 0;
-                        int dirInt  = 1;
-                        for (int i = 0; i < 4; i++) {
-                            if (blueprint.ShouldLinkWith(Position + GenAdj.CardinalDirections[i], _thingDef)) {
-                                linkInt += dirInt;
+                            // loop over cardinal directions, and set the correct bits (e.g. 1, 2, 4, 8).
+                            int linkInt = 0;
+                            int dirInt = 1;
+                            for (int i = 0; i < 4; i++) {
+                                if (blueprint.ShouldLinkWith(Position + GenAdj.CardinalDirections[i], _thingDef)) {
+                                    linkInt += dirInt;
+                                }
+                                dirInt *= 2;
                             }
 
-                            dirInt *= 2;
+                            // translate int to bitmask (flags)
+                            LinkDirections linkSet = (LinkDirections)linkInt;
+
+                            // get and cache the final material
+                            material = MaterialAtlasPool.SubMaterialFromAtlas(atlas, linkSet);
+                        } else {
+                            // fallback: just use the colored material
+                            material = coloredGraphic.MatSingle;
                         }
-
-                        // translate int to bitmask (flags)
-                        LinkDirections linkSet = (LinkDirections) linkInt;
-
-                        // get and cache the final material
-                        material = MaterialAtlasPool.SubMaterialFromAtlas(atlas, linkSet);
                         _cachedMaterials.Add(hash, material);
                     }
 
                     // draw the thing.
-                    Vector3 position = cell.ToVector3ShiftedWithAltitude( AltitudeLayer.MetaOverlays );
+                    Vector3 position = cell.ToVector3ShiftedWithAltitude(AltitudeLayer.MetaOverlays);
                     Graphics.DrawMesh(MeshPool.plane10, position, Quaternion.identity, material, 0);
                 }
             } else {
